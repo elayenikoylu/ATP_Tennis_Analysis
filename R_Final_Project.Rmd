@@ -1,0 +1,209 @@
+---
+title: "R_Final_Project"
+author: "Ela Yenikoylu"
+date: "11/28/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Tools and packages used for this analysis
+
+```{r}
+library(tidyverse)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+```
+
+## Loading the data
+### We need to start with reading the csv file.
+
+```{r}
+atp_tennis <- read.csv("tournaments.csv",  header=TRUE, stringsAsFactors=FALSE, na.strings=c(""))
+dim(atp_tennis)
+
+```
+
+## Data Pre-Processing
+### Before we start analysis, need to make sure that data is consistent, and clean.
+
+### There are some columns that not related the purpose of our analysis. For example doubles data, or the tournement and player IDs, url suffixes etc. We can start cleaning our data by removing these.
+
+```{r}
+tennis <- atp_tennis[, !(colnames(atp_tennis) %in% c("tourney_order", "tourney_name", "tourney_id", "tourney_dates", "tourney_month", "tourney_day", "tourney_doubles_draw", "tourney_fin_commit", "tourney_url_suffix", "singles_winner_url", "singles_winner_player_slug", "singles_winner_player_id", "doubles_winner_1_name", "doubles_winner_1_url", "doubles_winner_1_player_slug", "doubles_winner_1_player_id", "doubles_winner_2_name", "doubles_winner_2_url", "doubles_winner_2_player_slug", "doubles_winner_2_player_id", "tourney_year_id"))]
+
+tennis <- na.omit(tennis)
+
+dim(tennis)
+```
+
+### Now it's time to make the colnames more consistent and readable.
+
+```{r}
+colnames(tennis) <- c("year", "name", "location", "singles_draw", "conditions", "surface", "winner_name" )
+colnames(tennis)
+
+```
+
+### Let's check the part of the data and see how it looks now.
+
+```{r}
+head(tennis)
+```
+
+### For the future analysis, setting some variables as factors needed.
+
+```{r}
+tennis$name <- as.factor(tennis$name)
+tennis$location <- as.factor(tennis$locatio)
+tennis$conditions <- as.factor(tennis$conditions)
+tennis$surface <- as.factor(tennis$surface)
+tennis$winner_name <- as.factor(tennis$winner_name)
+
+```
+
+
+
+### Now we can use summarry function to see some insights from our pre-processed data.
+
+```{r}
+summary(tennis)
+```
+
+### Using str function will give us some more insights.
+
+```{r}
+str(tennis)
+```
+
+## Now we are good to go for our analysis. Considering our research objectives, we will be moving forward question by question.
+
+### How many atp tournements in each year? and which year has most ATP tournaments?
+
+```{r}
+max_atp <- tennis %>%
+  group_by(year) %>%
+  dplyr::summarize(number_of_tournaments = n()) %>%
+  arrange(desc(number_of_tournaments))
+
+max_atp
+
+
+```
+
+
+### How many of them indoor, how many of them outdoor tournaments?
+
+```{r}
+
+tennis %>%
+  group_by(conditions) %>%
+  ggplot() +
+  stat_count(aes(conditions, fill = conditions)) + labs(title = "Conditions of ATP Tournaments", subtitle = "Indoor vs Outdoor", y = "ATP Tournaments", x = "Conditions") + theme_linedraw()
+
+```
+
+
+### What kind of surface usually had been played on in the tournaments?
+
+```{r}
+tennis %>%
+  group_by(surface) %>%
+  ggplot() +
+  stat_count(aes(surface, fill = surface)) + labs(title = "Surface Statistics", subtitle = "grass-clay-carpet-hard", y = "ATP Tournaments", x = "Surface") + theme_linedraw()
+```
+
+
+
+### Who is in the top 10 most successfull players in the ATP history.
+
+```{r}
+top_10 <- tennis %>%
+  group_by(winner_name) %>%
+  dplyr::summarize(number_of_wins = n()) %>%
+  arrange(desc(number_of_wins)) %>%
+  head(10)
+
+top_10
+
+
+```
+
+
+### Which player has most won between 4 grand slam tournaments? (aus open, rolland garros, wimbledon, us open)
+
+```{r}
+grand_slams <- c("us-open", "wimbledon", "rolland-garros", "australian-open")
+
+tennis %>%
+  filter(name %in% grand_slams) %>%
+  group_by(winner_name) %>%
+  filter(n() >= 10) %>%
+  ggplot() +
+  geom_bar(aes(winner_name, fill = winner_name)) + coord_flip() + labs(title = "Best Performances in Four Grand Slam", subtitle = "the best 4 player", y = "Number of Winnings", x = "Player Names") + theme_linedraw()
+ 
+```
+
+
+### How is the competition between the big four (Nadal, Federer, Djocovic, Murray) in the grand slams? 
+
+```{r}
+big_four <- c("Novak Djokovic", "Rafael Nadal", "Roger Federer", "Andy Murray")
+
+tennis %>%
+  filter(name %in% grand_slams) %>%
+  group_by(winner_name) %>%
+  filter(winner_name %in% big_four) %>%
+  ggplot() + 
+  geom_bar(aes(winner_name, fill = winner_name)) + labs(title = "Best Performances in Four Grand Slam Between Big Four", subtitle = "Nadal vs Djokovic vs Federer vs Murray", y = "Number of Winnings", x = "Player Names") + theme_linedraw()
+  
+  
+```
+
+
+### How is the Big Four's performances in different surfaces?
+
+```{r}
+tennis %>%
+  filter(winner_name %in% big_four) %>%
+  group_by(surface) %>%
+  ggplot(aes(x = "", y = surface)) +
+  geom_jitter(aes(color = winner_name)) + labs(title = "Big Four's Performances in Different Surfaces", subtitle = "Djokovic vs Nadal vs Federer vs Murray | hard vs clay vs grass vs carpet", x = "", y = "Surface") + theme_linedraw()
+
+
+
+
+```
+
+
+### How is the competition between Rafael Nadal and Novak Djokovic in the clay surface?
+
+```{r}
+rafa_nole <- c("Novak Djokovic", "Rafael Nadal")
+
+tennis %>%
+  filter(winner_name %in% rafa_nole) %>%
+  group_by(winner_name) %>%
+  filter(surface == "Clay") %>%
+  ggplot() +
+  geom_bar(aes(winner_name, fill = winner_name)) + labs(title = "Competition on Clay Surface", subtitle = "Rafa V Nole", x = "Player Name", y = "Number of Winnings") + theme_linedraw()
+
+
+```
+
+
+### How is the competition between Rafael Nadal and Novak Djokovic in the hard surface?
+
+```{r}
+tennis %>%
+  filter(winner_name %in% rafa_nole) %>%
+  group_by(winner_name) %>%
+  filter(surface == "Hard") %>%
+  ggplot() +
+  geom_bar(aes(winner_name, fill = winner_name)) + coord_flip() + labs(title = "Competition on Hard Surface", subtitle = "Rafa V Nole", x = "Player Name", y = "Number of Winnings") + theme_linedraw()
+```
+
+
